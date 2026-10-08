@@ -1,0 +1,24 @@
+{
+  "name": "ron-autotest",
+  "version": "1.0.0",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:headed": "PAUSE_AFTER_CASE=3 playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "codegen": "playwright codegen --channel=chrome https://ron-dev.nal.vn",
+    "typecheck": "tsc --noEmit",
+    "test:watch": "SLOWMO=800 PAUSE_AFTER_CASE=3 playwright test --headed",
+    "test:debug": "playwright test --debug"
+  },
+  "author": "",
+  "description": "Playwright E2E automation test cho du an RON",
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.4",
+    "dotenv": "^18.0.6",
+    "typescript": "^7.0.2"
+  },
+  "private": true
+}

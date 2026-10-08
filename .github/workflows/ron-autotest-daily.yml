@@ -1,0 +1,65 @@
+name: RON autotest daily
+
+on:
+  schedule:
+    # 06:30 UTC = 13:30 gio VN, Thu 2 - Thu 6. GitHub co the tre vai phut khi tai cao.
+    - cron: '30 6 * * 1-5'
+  workflow_dispatch: {}
+
+# Test dung chung 1 account that (han muc, ngay trung) -> khong cho 2 lan chay de nhau.
+concurrency:
+  group: ron-autotest
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    # ron-dev.nal.vn chi truy cap duoc trong mang NAL -> bat buoc self-hosted runner.
+    runs-on: [self-hosted]
+    timeout-minutes: 60
+    env:
+      CI: 'true'
+      RON_BASE_URL: ${{ vars.RON_BASE_URL || 'https://ron-dev.nal.vn' }}
+      RON_USERNAME: ${{ secrets.RON_USERNAME }}
+      RON_PASSWORD: ${{ secrets.RON_PASSWORD }}
+      RON_APPROVER: ${{ vars.RON_APPROVER }}
+      RON_HOLIDAYS: ${{ vars.RON_HOLIDAYS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      # Linux: cai Chromium bundled + thu vien he thong. macOS: dung Google Chrome da cai tren may runner.
+      - name: Install browser (Linux)
+        if: runner.os == 'Linux'
+        run: npx playwright install --with-deps chromium
+
+      - name: Use installed Chrome (macOS)
+        if: runner.os == 'macOS'
+        run: echo "PW_CHANNEL=chrome" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        run: npx playwright test
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_number }}
+          path: playwright-report/
+          retention-days: 14
+
+      - name: Upload traces, videos, junit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ github.run_number }}
+          path: test-results/
+          retention-days: 14
