@@ -23,14 +23,18 @@ jobs:
       RON_PASSWORD: ${{ secrets.RON_PASSWORD }}
       RON_APPROVER: ${{ vars.RON_APPROVER }}
       RON_HOLIDAYS: ${{ vars.RON_HOLIDAYS }}
+      # TBP duyet don (test approve / check-in-approve). KHONG khai RON_ALLOW_APPROVE o CI: duyet that de lai don vinh vien.
+      RON_TBP_USERNAME: ${{ secrets.RON_TBP_USERNAME }}
+      RON_TBP_PASSWORD: ${{ secrets.RON_TBP_PASSWORD }}
+      RON_OTHER_USERNAME: ${{ vars.RON_OTHER_USERNAME }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      # Khong dung `cache: npm`: self-hosted runner da giu ~/.npm tren may, restore cache qua tar
+      # tren runner nay loi ("/usr/bin/tar" exit 1) -> chi sinh warning, khong tang toc.
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: package-lock.json
 
       - run: npm ci
 
@@ -50,7 +54,7 @@ jobs:
 
       - name: Upload HTML report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-report-${{ github.run_number }}
           path: playwright-report/
@@ -58,7 +62,7 @@ jobs:
 
       - name: Upload traces, videos, junit
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: test-results-${{ github.run_number }}
           path: test-results/

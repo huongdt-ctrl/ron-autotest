@@ -154,7 +154,8 @@ test.describe('Don dang ky - danh sach va bo loc', () => {
     });
 
     // Assert (hanh vi bug)
-    expect(screen.urlQuery().to).toBe('null');
+    // Router cap nhat URL co the tre hon response API -> poll, khong doc 1 lan.
+    await expect.poll(() => screen.urlQuery().to).toBe('null');
     expect(apiUrl.searchParams.has('to')).toBe(false);
     expect(apiUrl.searchParams.get('from')).toBe(monthStart);
     await expect(screen.toInput).toHaveValue(toDisplayDate(monthEnd));

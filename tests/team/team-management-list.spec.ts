@@ -155,17 +155,24 @@ test.describe('Danh sach team - xem team va thanh vien', () => {
   });
 
   test('[RON-TEAM-010] Bam 👁 thi modal Danh sach thanh vien hien dung ID / Ten tai khoan / Ho ten theo API, dong duoc', async ({ api }) => {
-    // Arrange
+    // Arrange: team rong thi modal hien "Khong co du lieu", khong co bang -> chon team dau tien CO thanh vien
+    // (team dong dau tren ron-dev co the rong, do 2026-10-14).
+    const { results } = await api.listTeams({ page: 1, size: PAGE_SIZE });
+    let index = -1;
+    let members: Awaited<ReturnType<typeof api.listTeamMembers>> = [];
+    for (const [i, team] of results.entries()) {
+      members = await api.listTeamMembers(team.id);
+      if (members.length > 0) { index = i; break; }
+    }
+    test.skip(index < 0, 'Khong co team nao co thanh vien o trang 1 tren moi truong test');
     await screen.goto({ page: 1, size: PAGE_SIZE });
     await expect(screen.rows.first()).toBeVisible();
 
     // Act
-    const teamId = await screen.openMembers(0);
+    const teamId = await screen.openMembers(index);
 
     // Assert
-    const { results } = await api.listTeams({ page: 1, size: PAGE_SIZE });
-    expect(teamId, 'Modal goi API thanh vien cua dung team dong dau').toBe(results[0].id);
-    const members = await api.listTeamMembers(teamId);
+    expect(teamId, 'Modal goi API thanh vien cua dung team da chon').toBe(results[index].id);
     await expect(screen.memberModal.locator('h1')).toHaveText(MEMBER_MODAL_TITLE);
     expect(await screen.memberHeaders()).toEqual(['ID', 'Tên tài khoản', 'Họ tên']);
     expect(await screen.memberRows()).toEqual(members.map(toMemberRow));
