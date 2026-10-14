@@ -1,5 +1,6 @@
 import { expect, test } from '../../fixtures/employee-session-fixture';
 import { AppSidebarPage } from '../../pages/app-sidebar-page';
+import { todayInVietnam } from '../../utils/working-days';
 
 // Phan quyen cua account nhan vien (RON_USERNAME, khong co vai tro dac biet) - doc 13.
 // CHI DOC: mo URL truc tiep, khong bam nut nao tren man quan tri (writeGuard chan moi request ghi).
@@ -71,4 +72,63 @@ test.describe('Phan quyen - account nhan vien', () => {
       await expect(employeePage.getByText(ACCESS_DENIED)).toHaveCount(0);
     });
   }
+
+  // Doc 13: 2 man phe duyet khong co tren menu nhan vien nhung mo bang URL duoc, danh sach rong
+  // (khong ai giao don cho nhan vien), khong bao loi quyen.
+  for (const [route, api, title] of [
+    ['/approve-management', '/api/workTimeRegisters/assigned', 'Phê duyệt đơn'],
+    ['/check-in-register-approve', '/api/workTime/checkInRegisters/assigned', 'Phê duyệt đơn chấm công'],
+  ] as const) {
+    test(`[RON-PERM-005] Nhan vien mo truc tiep ${route} thi vao duoc, danh sach rong, khong bao loi quyen`, async ({ employeePage }) => {
+      // Arrange
+      const response = employeePage.waitForResponse((r) => r.request().method() === 'GET' && new URL(r.url()).pathname === api);
+
+      // Act
+      await employeePage.goto(route);
+      const body = await (await response).json();
+
+      // Assert
+      expect(body).toMatchObject({ error: null, data: { total: 0 } });
+      await expect(employeePage.getByText(title, { exact: true }).first()).toBeVisible();
+      await expect(employeePage.locator('tbody tr')).toHaveCount(0);
+      await expect(employeePage.getByText(ACCESS_DENIED)).toHaveCount(0);
+    });
+  }
+
+  // BUG da biet (doc 13 diem bat thuong 1): man Xuat bang cham cong toan cong ty mo duoc bang URL.
+  // KHONG bam "Xuat bang" (tai du lieu nhan su that). Dev chan -> doi assertion: toast ACCESS_DENIED, khong co nut.
+  test('[RON-PERM-006] BUG da biet: nhan vien mo /export-table-timekeeping van thay nut Xuat bang', async ({ employeePage }) => {
+    test.info().annotations.push({ type: 'known-bug', description: 'Nhan vien mo duoc man Xuat bang cham cong cua cong ty' });
+
+    // Act
+    await employeePage.goto('/export-table-timekeeping');
+
+    // Assert (hanh vi bug)
+    await expect(employeePage.getByText('Xuất bảng chấm công', { exact: true }).first()).toBeVisible();
+    await expect(employeePage.getByRole('button', { name: 'Xuất bảng', exact: true })).toBeEnabled();
+    await expect(employeePage.getByText(ACCESS_DENIED)).toHaveCount(0);
+  });
+
+  // Doc 13 diem bat thuong 2 (IDOR): man admin gio cong thang mo duoc, nhung backend chan xem gio cong
+  // nguoi khac (FORBIDDEN, do 2026-10-13). Bang van hien gio cong cua CHINH MINH (frontend khong co route guard).
+  test('[RON-PERM-007] /monthly-working-hours-admin: bao loi quyen, chi hien gio cong cua minh, API chan username khac', async ({ employeePage, api }) => {
+    // Arrange
+    const [year, month] = todayInVietnam().split('-').map(Number);
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    const me = (await api.userInfo()).username;
+    const other = (await api.approvalUsers()).find((u) => u.username !== me)?.username;
+    expect(other, 'Can 1 username khac de kiem tra IDOR').toBeDefined();
+    const toastShown = employeePage.locator('.Toastify__toast').filter({ hasText: ACCESS_DENIED }).first().waitFor().then(() => true, () => false);
+
+    // Act
+    await employeePage.goto('/monthly-working-hours-admin');
+
+    // Assert: UI
+    expect(await toastShown, `Toast "${ACCESS_DENIED}"`).toBe(true);
+    await expect(employeePage.locator('tbody tr')).toHaveCount(daysInMonth);
+
+    // Assert: API - danh sach username va gio cong nguoi khac bi chan
+    expect(await api.errorCodeOfGet('/api/work-time/monthly/list-username')).toBe('FORBIDDEN');
+    expect(await api.errorCodeOfGet(`/api/work-time/monthly?page=1&size=20&year=${year}&month=${month}&username=${other}`)).toBe('FORBIDDEN');
+  });
 });

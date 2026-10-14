@@ -21,7 +21,8 @@ export function todayInVietnam(): IsoDate {
   return new Intl.DateTimeFormat('en-CA', { timeZone: VN_TIMEZONE }).format(new Date());
 }
 
-function shiftDays(date: IsoDate, days: number): IsoDate {
+/** Cong/tru `days` ngay theo lich (khong xet ngay LV). */
+export function shiftDays(date: IsoDate, days: number): IsoDate {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);

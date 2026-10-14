@@ -172,4 +172,29 @@ test.describe('Don remote - quy dinh QD-04-02 muc 3', () => {
     expect(result.createdId).not.toBeNull();
     expect(await api.getById(result.createdId!, day, day)).toMatchObject({ type: 'REMOTE', approvalStatus: 'PENDING' });
   });
+
+  // BUG da biet (doc 06 diem bat thuong): SDT ca nhan khong validate dinh dang, nhan ca chu.
+  // Test ghi lai HANH VI HIEN TAI; dev them validate -> doi assertion thanh client chan / errorCode khac null.
+  test('[RON-REMOTE-008] BUG da biet: SDT ca nhan nhap chu van tao duoc don', async ({ api, createdRequests }) => {
+    test.info().annotations.push({ type: 'known-bug', description: 'SDT ca nhan khong validate dinh dang (doc 06)' });
+
+    // Arrange
+    const day = addWorkingDays(todayInVietnam(), 1);
+    const periods: TimePeriod[] = [{ day, from: '08:00', to: '12:00' }];
+    await skipIfOccupied(api, periods);
+    await skipIfQuotaShort(api, periods);
+    const text = `${AUTOMATION_REASON_PREFIX}REMOTE-008`;
+    const phone = 'AUTOTEST_abc';
+    await form.open();
+    await form.fill({ periods, planned: true, approver: APPROVER, channel: text, phone, reason: text });
+
+    // Act
+    const result = await form.submit();
+    if (result.createdId) createdRequests.add(result.createdId);
+
+    // Assert (hanh vi bug)
+    expect(result.errorCode, JSON.stringify(result)).toBeNull();
+    expect(result.createdId).not.toBeNull();
+    expect(await api.getDetail(result.createdId!)).toMatchObject({ type: 'REMOTE', emergencyRemoteContact: phone });
+  });
 });

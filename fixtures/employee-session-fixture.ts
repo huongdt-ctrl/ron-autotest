@@ -33,10 +33,13 @@ export interface CreatedRequestTracker {
   readonly ids: readonly number[];
 }
 
-async function ensureLoggedIn(page: Page): Promise<void> {
-  const username = process.env.RON_USERNAME;
-  const password = process.env.RON_PASSWORD;
-  if (!username || !password) throw new Error('Chua set RON_USERNAME / RON_PASSWORD trong .env');
+/** Dang nhap neu `page` chua co phien. Mac dinh account nhan vien; account TBP truyen credential rieng. */
+export async function ensureLoggedIn(
+  page: Page,
+  username = process.env.RON_USERNAME,
+  password = process.env.RON_PASSWORD,
+): Promise<void> {
+  if (!username || !password) throw new Error('Chua set username / password cua account test trong .env');
   // Test truoc (vd dang xuat) co the de trang dang redirect -> cho on dinh; evaluate loi = coi nhu chua dang nhap.
   await page.waitForLoadState().catch(() => {});
   const hasToken = page.url().startsWith('http') && (await page.evaluate(() => !!localStorage.getItem('token')).catch(() => false));
@@ -108,7 +111,8 @@ export const test = sharedTest.extend<{
 
   // API tao don cham cong tra id = null -> don dep theo tien to li do. Don Huy khong tinh vao
   // han muc 5 lan/thang (QD-04-02 muc 1.7) nen huy het sau moi test de lan chay sau con luot.
-  // Chi don Cho xu ly: automation khong bao gio duyet don.
+  // Chi don Cho xu ly: TBP da quyet dinh (Cho xac nhan / Tu choi) thi server tra INVALID_STATUS khi
+  // tu huy (do 2026-10-13) -> case duyet don cham cong (doc 15) chi chay tay voi RON_ALLOW_APPROVE=1.
   // Chay ca TRUOC test: don sot tu lan chay bi ngat (Ctrl+C) dang chiem han muc.
   checkInCleanup: async ({ api }, use) => {
     const cancelLeftovers = async () => {

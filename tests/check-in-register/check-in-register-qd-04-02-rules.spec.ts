@@ -1,4 +1,10 @@
 import { AUTOMATION_REASON_PREFIX, expect, test } from '../../fixtures/employee-session-fixture';
+import {
+  checkInMonthState as monthState,
+  CHECK_IN_MONTHLY_LIMIT as MONTHLY_LIMIT,
+  freePastCheckInDays as freePastDays,
+  isCountedCheckIn as isCounted,
+} from '../../fixtures/request-test-helpers';
 import { CheckInRegisterFormPage } from '../../pages/check-in-register-form-page';
 import { ACTIVE_CHECK_IN_STATUSES, type CheckInRegister, type RonApiClient } from '../../utils/ron-api-client';
 import { lastWorkingDayOfPreviousMonth, monthRange, todayInVietnam, type IsoDate } from '../../utils/working-days';
@@ -10,35 +16,13 @@ import { lastWorkingDayOfPreviousMonth, monthRange, todayInVietnam, type IsoDate
 //   va chua co don nao (tru Huy). Thieu ngay/han muc -> skip, khong dung den du lieu that.
 
 const APPROVER = process.env.RON_APPROVER || '';
-const MONTHLY_LIMIT = 5;
 const TIME = { checkIn: '08:00', checkOut: '12:00' } as const;
-
-const isCounted = (r: CheckInRegister) => r.approvalStatus !== 'CANCELED';
-
-/** Don cham cong trong thang chua `day`, kem so don tinh vao han muc. */
-async function monthState(api: RonApiClient, day: IsoDate) {
-  const [from, to] = monthRange(day);
-  const requests = await api.listMyCheckInRegisters(from, to);
-  return { requests, counted: requests.filter(isCounted).length };
-}
 
 /** Ngay trong thang hien tai co don Remote con hieu luc (Cho xu ly / Chap thuan). */
 async function remoteRequestDays(api: RonApiClient): Promise<Set<IsoDate>> {
   const [from, to] = monthRange(todayInVietnam());
   const remotes = (await api.listMyRequests(from, to)).filter((r) => r.type === 'REMOTE' && ['PENDING', 'APPROVED'].includes(r.approvalStatus));
   return new Set(remotes.flatMap((r) => r.timeIntervals.map((t) => t.day)));
-}
-
-/** Ngay da qua trong thang hien tai chua co don nao (tru Huy), moi nhat truoc. */
-function freePastDays(requests: CheckInRegister[]): IsoDate[] {
-  const today = todayInVietnam();
-  const used = new Set(requests.filter(isCounted).map((r) => r.day));
-  const days: IsoDate[] = [];
-  for (let d = Number(today.slice(8, 10)) - 1; d >= 1; d--) {
-    const day = `${today.slice(0, 8)}${String(d).padStart(2, '0')}`;
-    if (!used.has(day)) days.push(day);
-  }
-  return days;
 }
 
 test.describe('Don cham cong - quy dinh QD-04-02 muc 1.7', () => {
